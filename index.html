@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GGMOVIES - by kuldeep</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-card: #12121a;
+      --fg: #f5f5f7;
+      --muted: #6b6b7a;
+      --accent: #d4a853;
+      --accent-dim: #a07d3a;
+      --border: #2a2a35;
+      --seat: #1e1e28;
+      --seat-hover: #2d2d3a;
+      --seat-selected: #d4a853;
+      --seat-taken: #3d1f1f;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; }
+    h1, h2, h3, .font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.05em; }
+    
+    .bg-pattern {
+      background-image: 
+        radial-gradient(ellipse at 20% 0%, rgba(212,168,83,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(212,168,83,0.05) 0%, transparent 40%),
+        linear-gradient(180deg, var(--bg) 0%, #0d0d14 100%);
+    }
+    
+    .seat {
+      width: 32px; height: 28px;
+      background: var(--seat);
+      border-radius: 6px 6px 3px 3px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .seat::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 80%; height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+    }
+    .seat:hover:not(.taken):not(.selected) { background: var(--seat-hover); transform: scale(1.1); }
+    .seat.selected { background: var(--seat-selected); transform: scale(1.05); box-shadow: 0 0 12px rgba(212,168,83,0.5); }
+    .seat.taken { background: var(--seat-taken); cursor: not-allowed; opacity: 0.6; }
+    
+    .time-slot {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-card);
+    }
+    .time-slot:hover { border-color: var(--accent-dim); }
+    .time-slot.active { border-color: var(--accent); background: rgba(212,168,83,0.1); }
+    
+    .movie-card {
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .movie-card:hover { transform: translateY(-4px); }
+    .movie-card.active { ring: 2px solid var(--accent); }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+      color: #0a0a0f;
+      font-weight: 600;
+      padding: 0.875rem 2rem;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(212,168,83,0.3); }
+    .btn-primary:active { transform: translateY(0); }
+    
+    .screen {
+      width: 60%;
+      height: 6px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      border-radius: 50%;
+      margin: 0 auto 2rem;
+      box-shadow: 0 0 30px rgba(212,168,83,0.3);
+    }
+    
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in { animation: fadeInUp 0.5s ease forwards; }
+    .delay-1 { animation-delay: 0.1s; opacity: 0; }
+    .delay-2 { animation-delay: 0.2s; opacity: 0; }
+    .delay-3 { animation-delay: 0.3s; opacity: 0; }
+    
+    @media (prefers-reduced-motion: reduce) {
+      .animate-in, .seat, .movie-card, .btn-primary { animation: none; transition: none; }
+    }
+  </style>
+</head>
+<body class="bg-pattern">
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-8 animate-in">
+      <h1 class="text-3xl text-[var(--accent)]">KULDEEP'S PRIVATE THEATRE</h1>
+      <nav class="flex gap-6 text-sm text-[var(--muted)]">
+        <a href="#" class="hover:text-[var(--fg)] transition-colors">Movies</a>
+        <a href="#" class="hover:text-[var(--fg)] transition-colors">My Bookings</a>
+      </nav>
+    </header>
+
+    <main class="grid lg:grid-cols-3 gap-8">
+      <!-- Left: Movie Selection -->
+      <section class="lg:col-span-2 space-y-6">
+        <!-- Now Showing -->
+        <div class="animate-in delay-1">
+          <h2 class="text-2xl mb-4">NOW SHOWING</h2>
+          <div id="movieList" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+        </div>
+
+        <!-- Showtimes -->
+        <div class="animate-in delay-2">
+          <h2 class="text-2xl mb-4">SELECT SHOWTIME</h2>
+          <div id="showtimeList" class="flex flex-wrap gap-3"></div>
+        </div>
+
+        <!-- Seat Map -->
+        <div class="animate-in delay-3 bg-[var(--bg-card)] rounded-xl p-6 border border-[var(--border)]">
+          <h2 class="text-2xl mb-6">SELECT SEATS</h2>
+          <div class="screen"></div>
+          <div id="seatMap" class="flex flex-col items-center gap-2"></div>
+          <div class="flex justify-center gap-6 mt-6 text-sm text-[var(--muted)]">
+            <div class="flex items-center gap-2"><span class="seat w-6 h-5 scale-75"></span> Available</div>
+            <div class="flex items-center gap-2"><span class="seat selected w-6 h-5 scale-75"></span> Selected</div>
+            <div class="flex items-center gap-2"><span class="seat taken w-6 h-5 scale-75"></span> Taken</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Booking Summary -->
+      <aside class="animate-in delay-3">
+        <div class="bg-[var(--bg-card)] rounded-xl p-6 border border-[var(--border)] sticky top-8">
+          <h2 class="text-2xl mb-4">BOOKING SUMMARY</h2>
+          <div id="summaryContent" class="space-y-4">
+            <p class="text-[var(--muted)]">Select a movie to begin</p>
+          </div>
+          <button id="bookBtn" class="btn-primary w-full mt-6 hidden">Proceed to Payment</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    // Data
+    const movies = [
+      { id: 1, title: "Dune: Part Two", poster: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&h=220&fit=crop", rating: "8.8", genre: "Sci-Fi" },
+      { id: 2, title: "Oppenheimer", poster: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=150&h=220&fit=crop", rating: "8.5", genre: "Drama" },
+      { id: 3, title: "The Batman", poster: "https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=150&h=220&fit=crop", rating: "8.2", genre: "Action" },
+      { id: 4, title: "Interstellar", poster: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=150&h=220&fit=crop", rating: "9.0", genre: "Sci-Fi" }
+    ];
+
+    const showtimes = ["10:30 AM", "1:45 PM", "4:30 PM", "7:15 PM", "10:00 PM"];
+    const takenSeats = [3, 7, 12, 18, 25, 33, 41, 47];
+
+    // State
+    let selectedMovie = null;
+    let selectedTime = null;
+    let selectedSeats = [];
+    const ROWS = 6;
+    const SEATS_PER_ROW = 10;
+    const TICKET_PRICE = 12.50;
+
+    // DOM Elements
+    const movieListEl = document.getElementById('movieList');
+    const showtimeListEl = document.getElementById('showtimeList');
+    const seatMapEl = document.getElementById('seatMap');
+    const summaryContentEl = document.getElementById('summaryContent');
+    const bookBtn = document.getElementById('bookBtn');
+
+    // Render Movies
+    function renderMovies() {
+      movieListEl.innerHTML = movies.map(movie => `
+        <div class="movie-card bg-[var(--bg)] rounded-lg overflow-hidden border border-[var(--border)] ${selectedMovie?.id === movie.id ? 'ring-2 ring-[var(--accent)]' : ''}" data-id="${movie.id}">
+          <img src="${movie.poster}" alt="${movie.title}" class="w-full h-36 object-cover">
+          <div class="p-3">
+            <h3 class="font-display text-lg leading-tight">${movie.title}</h3>
+            <div class="flex items-center justify-between mt-1 text-xs">
+              <span class="text-[var(--muted)]">${movie.genre}</span>
+              <span class="text-[var(--accent)]">${movie.rating}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      movieListEl.querySelectorAll('.movie-card').forEach(card => {
+        card.addEventListener('click', () => selectMovie(parseInt(card.dataset.id)));
+      });
+    }
+
+    // Render Showtimes
+    function renderShowtimes() {
+      showtimeListEl.innerHTML = showtimes.map(time => `
+        <button class="time-slot ${selectedTime === time ? 'active' : ''}" data-time="${time}">
+          ${time}
+        </button>
+      `).join('');
+
+      showtimeListEl.querySelectorAll('.time-slot').forEach(btn => {
+        btn.addEventListener('click', () => selectTime(btn.dataset.time));
+      });
+    }
+
+    // Render Seats
+    function renderSeats() {
+      seatMapEl.innerHTML = '';
+      for (let row = 0; row < ROWS; row++) {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'flex gap-2';
+        const rowLabel = document.createElement('span');
+        rowLabel.className = 'w-6 text-xs text-[var(--muted)] flex items-center justify-center';
+        rowLabel.textContent = String.fromCharCode(65 + row);
+        rowEl.appendChild(rowLabel);
+
+        const seatsContainer = document.createElement('div');
+        seatsContainer.className = 'flex gap-1';
+        
+        for (let seat = 0; seat < SEATS_PER_ROW; seat++) {
+          const seatNum = row * SEATS_PER_ROW + seat + 1;
+          const seatEl = document.createElement('button');
+          seatEl.className = 'seat';
+          seatEl.dataset.seat = seatNum;
+          seatEl.setAttribute('aria-label', `Seat ${String.fromCharCode(65 + row)}${seat + 1}`);
+          
+          if (takenSeats.includes(seatNum)) {
+            seatEl.classList.add('taken');
+          } else if (selectedSeats.includes(seatNum)) {
+            seatEl.classList.add('selected');
+          }
+          
+          seatEl.addEventListener('click', () => toggleSeat(seatNum));
+          seatsContainer.appendChild(seatEl);
+        }
+        
+        rowEl.appendChild(seatsContainer);
+        seatMapEl.appendChild(rowEl);
+      }
+    }
+
+    // Update Summary
+    function updateSummary() {
+      if (!selectedMovie) {
+        summaryContentEl.innerHTML = '<p class="text-[var(--muted)]">Select a movie to begin</p>';
+        bookBtn.classList.add('hidden');
+        return;
+      }
+
+      const seatLabels = selectedSeats.map(s => {
+        const row = Math.floor((s - 1) / SEATS_PER_ROW);
+        const seat = ((s - 1) % SEATS_PER_ROW) + 1;
+        return `${String.fromCharCode(65 + row)}${seat}`;
+      }).sort();
+
+      const subtotal = selectedSeats.length * TICKET_PRICE;
+      const serviceFee = selectedSeats.length * 1.50;
+      const total = subtotal + serviceFee;
+
+      summaryContentEl.innerHTML = `
+        <div class="flex gap-4 pb-4 border-b border-[var(--border)]">
+          <img src="${selectedMovie.poster}" alt="${selectedMovie.title}" class="w-16 h-24 object-cover rounded">
+          <div>
+            <h3 class="font-display text-xl">${selectedMovie.title}</h3>
+            <p class="text-sm text-[var(--muted)]">${selectedMovie.genre}</p>
+          </div>
+        </div>
+        ${selectedTime ? `
+        <div class="flex justify-between text-sm">
+          <span class="text-[var(--muted)]">Showtime</span>
+          <span>${selectedTime}</span>
+        </div>` : ''}
+        <div class="flex justify-between text-sm">
+          <span class="text-[var(--muted)]">Seats</span>
+          <span>${seatLabels.length > 0 ? seatLabels.join(', ') : 'None selected'}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-[var(--muted)]">Tickets (${selectedSeats.length})</span>
+          <span>$${subtotal.toFixed(2)}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-[var(--muted)]">Service Fee</span>
+          <span>$${serviceFee.toFixed(2)}</span>
+        </div>
+        <div class="flex justify-between pt-4 border-t border-[var(--border)] font-semibold text-lg">
+          <span>Total</span>
+          <span class="text-[var(--accent)]">$${total.toFixed(2)}</span>
+        </div>
+      `;
+
+      bookBtn.classList.toggle('hidden', selectedSeats.length === 0 || !selectedTime);
+    }
+
+    // Actions
+    function selectMovie(id) {
+      selectedMovie = movies.find(m => m.id === id);
+      selectedSeats = [];
+      renderMovies();
+      renderSeats();
+      updateSummary();
+    }
+
+    function selectTime(time) {
+      selectedTime = time;
+      renderShowtimes();
+      updateSummary();
+    }
+
+    function toggleSeat(seatNum) {
+      if (takenSeats.includes(seatNum)) return;
+      
+      const idx = selectedSeats.indexOf(seatNum);
+      if (idx > -1) {
+        selectedSeats.splice(idx, 1);
+      } else {
+        if (selectedSeats.length >= 8) {
+          alert('Maximum 8 seats allowed per booking');
+          return;
+        }
+        selectedSeats.push(seatNum);
+      }
+      
+      renderSeats();
+      updateSummary();
+    }
+
+    // Book
+    bookBtn.addEventListener('click', () => {
+      const seatLabels = selectedSeats.map(s => {
+        const row = Math.floor((s - 1) / SEATS_PER_ROW);
+        const seat = ((s - 1) % SEATS_PER_ROW) + 1;
+        return `${String.fromCharCode(65 + row)}${seat}`;
+      }).sort();
+      
+      alert(`Booking confirmed!\n\nMovie: ${selectedMovie.title}\nTime: ${selectedTime}\nSeats: ${seatLabels.join(', ')}\n\nThank you for choosing CineLux!`);
+      
+      selectedSeats = [];
+      renderSeats();
+      updateSummary();
+    });
+
+    // Init
+    renderMovies();
+    renderShowtimes();
+    renderSeats();
+  </script>
+</body>
+</html>
